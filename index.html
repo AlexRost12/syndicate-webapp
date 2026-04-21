@@ -25,7 +25,7 @@
         body {
             background: var(--bg);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 20px;
             transition: background 0.3s;
@@ -35,7 +35,7 @@
             border-radius: 20px;
             padding: 20px;
             margin-bottom: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
         .header {
             display: flex;
@@ -45,14 +45,18 @@
         }
         .title { font-size: 20px; font-weight: 700; color: var(--blue); }
         .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text); }
+        
         .user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .rank { background: var(--blue); color: white; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: bold; }
+        
         .balance-box { text-align: center; padding: 20px 0; }
         .balance-label { color: var(--text-sec); font-size: 14px; }
         .balance-amount { font-size: 48px; font-weight: 800; color: var(--green); margin: 10px 0; }
+        
         .stats-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; }
         .stat-item { display: flex; flex-direction: column; align-items: center; }
         .stat-val { font-weight: bold; font-size: 16px; }
+        
         .btn-group { display: flex; gap: 10px; margin-top: 20px; }
         .btn {
             flex: 1; padding: 15px; border: none; border-radius: 12px;
@@ -61,6 +65,8 @@
         }
         .btn-primary { background: linear-gradient(135deg, var(--blue), #1d4ed8); color: white; }
         .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--text-sec); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
         .modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center;
@@ -71,11 +77,13 @@
             padding: 20px; border-radius: 20px; position: relative;
         }
         .close-modal { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: var(--text-sec); }
+        
         input {
             width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px;
             border: 1px solid var(--text-sec); background: var(--bg); color: var(--text);
             font-size: 16px; box-sizing: border-box;
         }
+        
         .msg-item {
             background: var(--bg); padding: 12px; border-radius: 10px; margin-bottom: 8px;
             border-left: 4px solid var(--blue);
@@ -84,11 +92,13 @@
         .msg-item.yellow { border-color: var(--yellow); }
         .msg-title { font-weight: bold; margin-bottom: 4px; }
         .msg-body { font-size: 13px; color: var(--text-sec); }
+
         .referral-box { margin-top: 10px; }
         .ref-link { 
             background: var(--bg); padding: 10px; border-radius: 8px; 
             font-size: 12px; word-break: break-all; margin-bottom: 10px; 
         }
+        
         .hidden { display: none; }
     </style>
 </head>
@@ -211,6 +221,7 @@
             m.addEventListener('click', (e) => { if(e.target === m) closeModal(m.id); });
         });
 
+        // Кнопки
         document.getElementById('sellBtn').addEventListener('click', () => document.getElementById('sellModal').style.display = 'flex');
         document.getElementById('withdrawBtn').addEventListener('click', () => {
             if (userData.balance < 0.80) {
@@ -221,9 +232,11 @@
         });
         document.getElementById('notifBtn').addEventListener('click', () => {
             document.getElementById('notifModal').style.display = 'flex';
+            // Запрашиваем сообщения у бота
             tg.sendData(JSON.stringify({action: 'read_messages'}));
         });
 
+        // Геолокация
         function getGeo() {
             if (!navigator.geolocation) {
                 document.getElementById('geoStatus').textContent = 'Не поддерживается';
@@ -238,44 +251,113 @@
             );
         }
 
+        // Калькулятор сдачи
         function calcSell() {
             let amt = parseInt(document.getElementById('sellAmount').value) || 0;
             if (amt % 10 !== 0) amt = Math.floor(amt / 10) * 10;
             document.getElementById('sellPayout').textContent = '$' + (amt * currentRate).toFixed(3);
         }
 
+        // ✅ ОТПРАВКА ДАННЫХ БОТУ - СДАЧА МОНЕТ
         function submitSell() {
             const amt = parseInt(document.getElementById('sellAmount').value);
-            if (!amt || amt < 10 || amt % 10 !== 0) return tg.showAlert('Количество кратно 10 и мин 10');
-            if (!geoData.lat) return tg.showAlert('Нужна геолокация!');
-            tg.sendData(JSON.stringify({ action: 'sell_coins', amount: amt, lat: geoData.lat, lon: geoData.lon }));
+            if (!amt || amt < 10 || amt % 10 !== 0) {
+                return tg.showAlert('Количество должно быть кратно 10 и минимум 10');
+            }
+            if (!geoData.lat) {
+                return tg.showAlert('Отправьте геолокацию!');
+            }
+            
+            // ✅ ОТПРАВЛЯЕМ ДАННЫЕ В БОТА
+            tg.sendData(JSON.stringify({
+                action: 'sell_coins',
+                amount: amt,
+                lat: geoData.lat,
+                lon: geoData.lon
+            }));
+            
             closeModal('sellModal');
-            tg.showAlert('✅ Заявка отправлена!');
+            tg.showAlert('✅ Заявка отправлена! Ждите проверки.');
         }
 
+        // ✅ ОТПРАВКА ДАННЫХ БОТУ - ВЫВОД
         function submitWithdraw() {
             const amt = parseFloat(document.getElementById('wdAmount').value);
             const pid = document.getElementById('wdPayId').value;
-            if (!amt || amt < 0.80) return tg.showAlert('Минимальная сумма: $0.80');
-            if (!pid) return tg.showAlert('Введите Pay ID');
-            tg.sendData(JSON.stringify({ action: 'withdraw_coins', amount: amt, pay_id: pid }));
+            
+            if (!amt || amt < 0.80) {
+                return tg.showAlert('Минимальная сумма: $0.80');
+            }
+            if (!pid) {
+                return tg.showAlert('Введите Pay ID');
+            }
+            
+            // ✅ ОТПРАВЛЯЕМ ДАННЫЕ В БОТА
+            tg.sendData(JSON.stringify({
+                action: 'withdraw_coins',
+                amount: amt,
+                pay_id: pid
+            }));
+            
             closeModal('wdModal');
-            tg.showAlert('✅ Заявка отправлена!');
+            tg.showAlert('✅ Заявка на вывод отправлена!');
         }
 
+        // Копирование реф-ссылки
         function copyRef() {
             const link = 'https://t.me/Syndicate_10k_bot?start=' + (tg.initDataUnsafe?.user?.id || '');
             navigator.clipboard.writeText(link);
             tg.showAlert('📋 Ссылка скопирована!');
         }
 
-        // Инициализация
+        // Отображение уведомлений
+        function renderMessages(msgs) {
+            const list = document.getElementById('notifList');
+            list.innerHTML = '';
+            
+            if (!msgs || msgs.length === 0) {
+                list.innerHTML = '<div style="text-align: center; color: var(--text-sec); padding: 20px;">Нет новых сообщений</div>';
+                document.getElementById('notifCount').classList.add('hidden');
+                return;
+            }
+            
+            document.getElementById('notifCount').textContent = msgs.length;
+            document.getElementById('notifCount').classList.remove('hidden');
+            
+            msgs.forEach(m => {
+                let color = 'blue';
+                if (m.type === 'system' || m.type === 'response') color = 'green';
+                if (m.type === 'support') color = 'yellow';
+                
+                const div = document.createElement('div');
+                div.className = 'msg-item ' + color;
+                div.innerHTML = `
+                    <div class="msg-title">${m.title}</div>
+                    <div class="msg-body">${m.body}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Инициализация при загрузке
         const user = tg.initDataUnsafe?.user;
         if (user) {
             userData.username = user.username ? '@' + user.username : user.first_name;
             document.getElementById('username').textContent = userData.username;
             document.getElementById('refLink').textContent = 't.me/Syndicate_10k_bot?start=' + user.id;
         }
+
+        // Обработка ответов от бота
+        tg.onEvent('message', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.action === 'messages_list') {
+                    renderMessages(data.data);
+                }
+            } catch(e) {
+                console.error('Error parsing message:', e);
+            }
+        });
     </script>
 </body>
 </html>
