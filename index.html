@@ -4,29 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Syndicate Cabinet</title>
-    <!-- ✅ ОБЯЗАТЕЛЬНЫЙ СКРИПТ TELEGRAM -->
+    <!-- ✅ ОБЯЗАТЕЛЬНЫЙ СКРИПТ -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --bg: #0f172a; --card: #1e293b; --text: #f8fafc;
-            --blue: #3b82f6; --green: #22c55e;
-        }
-        body {
-            background: var(--bg); color: var(--text);
-            font-family: -apple-system, sans-serif;
-            margin: 0; padding: 20px;
-        }
-        .card {
-            background: var(--card); border-radius: 20px;
-            padding: 20px; margin-bottom: 15px;
-        }
-        .balance { font-size: 48px; font-weight: 800; color: var(--green); text-align: center; }
-        .btn {
-            width: 100%; padding: 15px; margin: 10px 0;
-            border: none; border-radius: 12px;
-            background: var(--blue); color: white;
-            font-weight: 600; font-size: 16px; cursor: pointer;
-        }
+        :root { --bg:#0f172a; --card:#1e293b; --text:#f8fafc; --blue:#3b82f6; --green:#22c55e; }
+        .light { --bg:#f1f5f9; --card:#fff; --text:#0f172a; }
+        body { background:var(--bg); color:var(--text); font-family:sans-serif; margin:0; padding:20px; }
+        .card { background:var(--card); border-radius:20px; padding:20px; margin-bottom:15px; }
+        .balance { font-size:48px; font-weight:800; color:var(--green); text-align:center; margin:20px 0; }
+        .btn { width:100%; padding:15px; margin:10px 0; border:none; border-radius:12px; background:var(--blue); color:#fff; font-weight:600; font-size:16px; cursor:pointer; }
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:none; align-items:center; justify-content:center; z-index:100; }
+        .modal-content { background:var(--card); width:90%; max-width:400px; padding:20px; border-radius:20px; }
+        .close { position:absolute; top:15px; right:15px; font-size:24px; cursor:pointer; }
+        input { width:100%; padding:12px; margin:10px 0; border-radius:10px; border:1px solid #64748b; background:var(--bg); color:var(--text); box-sizing:border-box; }
     </style>
 </head>
 <body>
@@ -34,18 +24,56 @@
         <h2>👋 Личный кабинет</h2>
         <p id="username">Загрузка...</p>
         <div class="balance" id="balance">$0.00</div>
-        <p style="text-align: center; color: #94a3b8;">Курс: 100 монет = $0.010</p>
+        <p style="text-align:center; color:#94a3b8;">Курс: 100 монет = $0.010</p>
     </div>
     
-    <button class="btn" onclick="tg.showAlert('Функция в разработке!')">💰 Сдать монеты</button>
-    <button class="btn" onclick="tg.showAlert('Мин. вывод: $0.80')">💳 Вывести</button>
+    <button class="btn" onclick="openSell()">💰 Сдать монеты</button>
+    <button class="btn" onclick="openWithdraw()">💳 Вывести (мин $0.80)</button>
     <button class="btn" onclick="copyRef()">🤝 Пригласить друга</button>
+    <button class="btn" style="background:#64748b" onclick="openSupport()">🆘 Техподдержка</button>
+
+    <!-- Модальное окно: Сдача -->
+    <div class="modal" id="sellModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('sellModal')">×</span>
+            <h3>💰 Сдача монет</h3>
+            <label>Количество (кратно 10):</label>
+            <input type="number" id="sellAmount" placeholder="500" oninput="calcSell()">
+            <div style="background:var(--bg); padding:10px; border-radius:10px; margin:10px 0; display:flex; justify-content:space-between;">
+                <span>К выплате:</span>
+                <span id="sellPayout" style="font-weight:bold; color:var(--green);">$0.00</span>
+            </div>
+            <button class="btn" onclick="submitSell()">Подтвердить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Вывод -->
+    <div class="modal" id="wdModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('wdModal')">×</span>
+            <h3>💳 Вывод средств</h3>
+            <label>Сумма ($):</label>
+            <input type="number" id="wdAmount" placeholder="1.00" step="0.01">
+            <label>Telegram Wallet ID:</label>
+            <input type="text" id="wdPayId" placeholder="Pay ID">
+            <button class="btn" onclick="submitWithdraw()">Подтвердить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Техподдержка -->
+    <div class="modal" id="supportModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('supportModal')">×</span>
+            <h3>🆘 Техподдержка</h3>
+            <input type="text" id="supTitle" placeholder="Заголовок (макс 10)" maxlength="10">
+            <input type="text" id="supBody" placeholder="Суть (макс 90)" maxlength="90">
+            <button class="btn" onclick="submitSupport()">Отправить</button>
+        </div>
+    </div>
 
     <script>
-        // ✅ ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Раскрыть на весь экран
-        tg.enableClosingConfirmation(); // Подтверждение закрытия
+        tg.expand();
 
         // Получаем данные пользователя
         const user = tg.initDataUnsafe?.user;
@@ -54,16 +82,55 @@
             document.getElementById('username').textContent = `Игрок: ${name}`;
         }
 
-        // Копирование реф-ссылки
+        // Калькулятор сдачи
+        function calcSell() {
+            let amt = parseInt(document.getElementById('sellAmount').value) || 0;
+            if (amt % 10 !== 0) amt = Math.floor(amt / 10) * 10;
+            document.getElementById('sellPayout').textContent = `$${(amt * 0.0001).toFixed(3)}`;
+        }
+
+        // Отправка данных боту
+        function sendData(action, data) {
+            tg.sendData(JSON.stringify({ action, ...data }));
+        }
+
+        function openSell() { document.getElementById('sellModal').style.display = 'flex'; }
+        function openWithdraw() { document.getElementById('wdModal').style.display = 'flex'; }
+        function openSupport() { document.getElementById('supportModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function submitSell() {
+            const amt = parseInt(document.getElementById('sellAmount').value);
+            if (!amt || amt < 10 || amt % 10 !== 0) return tg.showAlert("Количество кратно 10 и мин 10");
+            sendData('sell_coins', { amount: amt });
+            closeModal('sellModal');
+            tg.showAlert("✅ Заявка отправлена!");
+        }
+
+        function submitWithdraw() {
+            const amt = parseFloat(document.getElementById('wdAmount').value);
+            const pid = document.getElementById('wdPayId').value;
+            if (!amt || amt < 0.80) return tg.showAlert("Минимальная сумма: $0.80");
+            if (!pid) return tg.showAlert("Введите Pay ID");
+            sendData('withdraw_coins', { amount: amt, pay_id: pid });
+            closeModal('wdModal');
+            tg.showAlert("✅ Заявка отправлена!");
+        }
+
+        function submitSupport() {
+            const t = document.getElementById('supTitle').value;
+            const b = document.getElementById('supBody').value;
+            if (t.length > 10 || b.length > 90) return tg.showAlert("Превышен лимит символов");
+            if (!t || !b) return tg.showAlert("Заполните все поля");
+            sendData('support_ticket', { title: t, body: b });
+            closeModal('supportModal');
+            tg.showAlert("✅ Отправлено!");
+        }
+
         function copyRef() {
             const link = `https://t.me/Syndicate_10k_bot?start=${user?.id || ''}`;
             navigator.clipboard.writeText(link);
             tg.showAlert('📋 Ссылка скопирована!');
-        }
-
-        // Отправка данных боту (пример)
-        function sendData(action, data) {
-            tg.sendData(JSON.stringify({ action, ...data }));
         }
     </script>
 </body>
